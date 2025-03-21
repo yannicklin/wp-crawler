@@ -1,0 +1,170 @@
+# Maven
+# Build your Java project and run tests with Apache Maven.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+name: 1.0.$(Build.BuildId)
+
+parameters:
+  - name: ignoreErrors
+    type: boolean
+    default: false
+
+variables:
+  - group: aws-keys-var-groups
+  - name: "tfe_token"
+    value: $[variables.TF_TOKEN_app_terraform_io]
+  - name: 'terraform-path'
+    value: deploy/terraform/aws
+  - name: 'aws_environment'
+    value: core_ecr
+  - name: 'aws_service_connection'
+    value: unicorn-prod-core-ecr
+  - name: 'aws_ecr_service_connection'
+    value: unicorn-prod-core-ecr
+  - name: 'jobName'
+    value: build_helm_repo
+  - name: "tf_version"
+    value: "v1.4.5"
+
+resources:
+  repositories:
+    - repository: self
+      type: git
+      name: self
+      persistCredentials: true
+
+    - repository: ctm-terraform-template
+      type: git
+      name: ctm-terraform-template
+      ref: 'refs/heads/terraform-template-eks-v2'
+
+pool:
+  name: prd-pool
+
+trigger: none
+
+stages:
+  - stage: Build_Static
+    condition: "true"
+    jobs:
+      - job:
+        variables:
+          - name: IS_PR_VALIDATION
+            value: $[eq(variables['Build.Reason'], 'PullRequest')]
+          - name: TF_VAR_ECR_REPO_NAME
+            value: $(DOCKER_IMAGE_NAME)
+          - name: LD_LIBRARY_PATH
+            value: /home/runner/azure-agent/_work/_tool/Python/3.11.9/x64/lib
+          - name: PYSPARK_PYTHON
+            value: python
+        steps:
+          - checkout: self
+            persistCredentials: true
+            clean: true
+
+          - task: UsePythonVersion@0
+            displayName: 'Use Python 3.11.9'
+            inputs:
+              versionSpec: 3.11.9
+
+          - task: Docker@2
+            displayName: Build an image
+            inputs:
+              repository: "wordpress-scrapy"
+              command: build
+              Dockerfile: ./Dockerfile
+              arguments: |
+
+          - task: AWSShellScript@1
+            displayName: Generate Static Site
+            inputs:
+              awsCredentials: 'unicorn-prod-core-ecr'
+              regionName: 'ap-southeast-2'
+              scriptType: 'inline'
+              inlineScript: |
+                set -e
+                mkdir -p output har-output
+                rm -rf output/* har-output/*
+                docker run -v $(pwd)/output:/usr/src/app/output -v $(pwd)/har-output:/usr/src/app/wordpress/har-output wordpress-scrapy:$(Build.BuildId)
+
+          - task: AWSShellScript@1
+            displayName: Hardcoded to crawl
+            inputs:
+              awsCredentials: 'unicorn-prod-core-ecr'
+              regionName: 'ap-southeast-2'
+              scriptType: 'inline'
+              inlineScript: |
+                SOURCEDOMAIN="wordpress.ctm.zone"
+
+                echo "Hardcoded to crawl favicon.ico"
+                FAVICON="static-content/themes/compare-the-market/resources/images/logos/favicon.ico"
+                curl -o $(pwd)/output/${FAVICON} https://${SOURCEDOMAIN}/${FAVICON}
+
+                echo "Hardcoded to crawl 404 for static-content"
+                DEFAULT404="404.html"
+                DEFAULT404STORED="static-content"
+                curl -o $(pwd)/output/static-content/${DEFAULT404} https://${SOURCEDOMAIN}/${DEFAULT404}
+
+          - task: PythonScript@0
+            displayName: Check for scrapy errors
+            inputs:
+              scriptSource: 'filePath'
+              scriptPath: '$(Build.SourcesDirectory)/check_har_errors.py'
+              arguments: >
+                --isPrValidation $(IS_PR_VALIDATION)
+                --ignoreErrors ${{ parameters.ignoreErrors }}
+              failOnStderr: true
+
+          - task: AWSShellScript@1
+            displayName: Commit Changes
+            condition: eq(variables['IS_PR_VALIDATION'], 'false')
+            inputs:
+              awsCredentials: 'unicorn-prod-core-ecr'
+              regionName: 'ap-southeast-2'
+              scriptType: 'inline'
+              inlineScript: |
+                set -e
+                git fetch
+                git worktree add subdir env/prd
+                cd subdir
+                git reset --hard origin/env/prd
+                find output -mindepth 1 -delete
+                mv ../output/* output/
+                git add -f output
+                git commit -am "Pipeline run $(Build.BuildId)"
+                git push
+
+          - task: PublishPipelineArtifact@1
+            condition: eq(variables['IS_PR_VALIDATION'], 'false')
+            inputs:
+              targetPath: '$(Build.SourcesDirectory)/subdir/output'
+              artifact: 'deployment'
+              publishLocation: 'pipeline'
+
+  - stage: Build_Terraform_vars
+    condition: eq(variables['IS_PR_VALIDATION'], 'false')
+    jobs:
+      - job:
+        steps:
+          - task: AWSShellScript@1
+            inputs:
+              awsCredentials: 'unicorn-prod-core-ecr'
+              regionName: 'ap-southeast-2'
+              scriptType: 'inline'
+              inlineScript: |
+                set -e
+                HASH=$(git rev-parse HEAD)
+                # Get the ECR/Helm Version
+                cat <<EOF > ./deploy/terraform/aws/deployment/variables.tfvars
+                AWS_REGION="ap-southeast-2"
+                VERTICAL="devops"
+                GIT_HASH="${HASH}"
+                DOMAIN="ctm.zone"
+                EOF
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: "./deploy/terraform/aws/deployment"
+              ArtifactName: 'terraform'
+              publishLocation: 'Container'

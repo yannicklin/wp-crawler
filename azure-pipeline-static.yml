@@ -1,0 +1,152 @@
+# Maven
+# Build your Java project and run tests with Apache Maven.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+name: 1.0.$(Build.BuildId)
+
+variables:
+  - group: aws-keys-var-groups
+  - group: cloudflare-pages-rw
+  - name: "tfe_token"
+    value: $[variables.TF_TOKEN_app_terraform_io]
+  - name: 'terraform-path'
+    value: deploy/terraform/aws
+  - name: 'aws_environment'
+    value: core_ecr
+  - name: 'aws_service_connection'
+    value: unicorn-prod-core-ecr
+  - name: 'aws_ecr_service_connection'
+    value: unicorn-prod-core-ecr
+  - name: 'jobName'
+    value: build_helm_repo
+  - name: "tf_version"
+    value: "v1.4.5"
+
+resources:
+  repositories:
+    - repository: self
+      type: git
+      name: self
+
+    - repository: ctm-terraform-template
+      type: git
+      name: ctm-terraform-template
+      ref: 'refs/heads/terraform-template-eks-v2'
+
+parameters:
+  - name: "feature"
+    displayName: "Feature Branch"
+    type: string
+    default: "NONE"
+
+  - name: "domain"
+    displayName: "Wordpress Instance"
+    type: string
+    default: "wordpress.dev.ctm.zone"
+    values:
+      - "wordpress.stg.ctm.zone"
+      - "wordpress.dev.ctm.zone"
+
+
+pool:
+  name: prd-pool
+
+trigger: none
+
+stages:
+  - stage: Build_Feature
+    condition: "true"
+    jobs:
+      - job:
+        variables:
+          - name: TF_VAR_ECR_REPO_NAME
+            value: $(DOCKER_IMAGE_NAME)
+          - name: LD_LIBRARY_PATH
+            value: /home/runner/azure-agent/_work/_tool/Python/3.11.9/x64/lib
+          - name: PYSPARK_PYTHON
+            value: python
+        steps:
+          - checkout: self
+            persistCredentials: true
+            clean: true
+
+          - task: UsePythonVersion@0
+            displayName: 'Use Python 3.11.9'
+            inputs:
+              versionSpec: 3.11.9
+
+          - task: Docker@2
+            displayName: Build an image
+            inputs:
+              repository: "wordpress-scrapy"
+              command: build
+              Dockerfile: ./Dockerfile
+              arguments: |
+
+          - task: AWSShellScript@1
+            displayName: Generate Static Site
+            inputs:
+              awsCredentials: 'unicorn-prod-core-ecr'
+              regionName: 'ap-southeast-2'
+              scriptType: 'inline'
+              inlineScript: |
+                set -e
+                mkdir output
+                mkdir har-output
+                docker run -v $(pwd)/output:/usr/src/app/output -v $(pwd)/har-output:/usr/src/app/wordpress/har-output -e FEATURE="${{ parameters.feature }}" -e DOMAIN="${{ parameters.domain }}" wordpress-scrapy:$(Build.BuildId)  bash ./bin/run_feature_scrape.sh
+
+          - task: AWSShellScript@1
+            displayName: Hardcoded to crawl
+            inputs:
+              awsCredentials: 'unicorn-prod-core-ecr'
+              regionName: 'ap-southeast-2'
+              scriptType: 'inline'
+              inlineScript: |
+                if [[ '${{ parameters.feature }}' != 'NONE' && -n '${{ parameters.feature }}' ]]; then
+                  SOURCEDOMAIN='${{ parameters.feature}}-${{ parameters.domain }}'
+                elif [[ '${{ parameters.domain }}' == 'wordpress.stg.ctm.zone' ]]; then
+                  SOURCEDOMAIN='${{ parameters.domain }}'
+                fi
+
+                echo "Hardcoded to crawl favicon.ico"
+                FAVICON="static-content/themes/compare-the-market/resources/images/logos/favicon.ico"
+                echo "The favicon.ico we wanna download is from https://${SOURCEDOMAIN}/${FAVICON}"
+                curl -o $(pwd)/output/${FAVICON} https://${SOURCEDOMAIN}/${FAVICON}
+
+                echo "Hardcoded to crawl 404 for static-content"
+                DEFAULT404="404.html"
+                DEFAULT404STORED="static-content"
+                curl -o $(pwd)/output/static-content/${DEFAULT404} https://${SOURCEDOMAIN}/${DEFAULT404}
+
+          - task: PythonScript@0
+            displayName: Check for scrapy errors
+            inputs:
+              scriptSource: 'filePath'
+              scriptPath: 'check_har_errors.py'
+              failOnStderr: true
+
+          - task: AWSShellScript@1
+            displayName: Push to Cloudflare Pages
+            inputs:
+              awsCredentials: 'unicorn-prod-dev-nub'
+              regionName: 'ap-southeast-2'
+              scriptType: 'inline'
+              inlineScript: |
+                set -e
+                TOKEN=$(aws ssm get-parameter --name /ctm/dev-nub/cloudflare --with-decryption --output text --query 'Parameter.Value')
+                export CLOUDFLARE_ACCOUNT_ID="a6a06a075e93668d53cc0f10bbcd677d"
+                npm install wrangler@3.53.0
+
+                if [[ '${{ parameters.feature }}' != 'NONE' && -n '${{ parameters.feature }}' ]]; then
+                  subdomain='${{ parameters.feature}}'
+                elif [[ '${{ parameters.domain }}' == 'wordpress.stg.ctm.zone' ]]; then
+                  subdomain='feature-stg'
+                else
+                  subdomain='feature-dev'
+                fi
+
+                CLOUDFLARE_API_TOKEN=${TOKEN} npx wrangler pages deploy ./output --project-name ctm-cf-page-enterprise-wordpress --branch ${subdomain:0:28}
+
+                echo "Site available: https://${subdomain:0:28}.ctm-cf-page-enterprise-wordpress.pages.dev"
+

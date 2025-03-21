@@ -1,0 +1,29 @@
+{% extends 'admin/base.html' %}
+
+{% block nav-sidebar %}
+<ul>
+    <li>Main</li>
+    <li>Deployments</li>
+    <li>Jobs</li>
+    <li>Environments</li>
+    <li>Files</li>
+</ul>
+{% endblock %}
+
+
+{% block content %}
+
+
+<h2>Latest Jobs</h2>
+
+<h2>Deployments</h2>
+{% if deployments %}
+    <ul>
+    {% for d in deployments %}
+        <li><a href="/polls/{{ d.id }}/">{{ d.name }}</a></li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>No deployments are available.</p>
+{% endif %}
+{% endblock %}
