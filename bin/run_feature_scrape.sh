@@ -17,7 +17,7 @@ popd
 
 if [[ "${FEATURE}" != "NONE" && -n "${FEATURE}" ]]; then
   subdomain="${FEATURE}"
-elif [[ "${DOMAIN}" == 'wordpress.stg.ctm.zone' ]]; then
+elif [[ "${DOMAIN}" == 'wordpress.stg.xxx.xxx.xxx' ]]; then
   subdomain='feature-stg'
 else
   subdomain='feature-dev'

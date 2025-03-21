@@ -20,9 +20,9 @@ def set_playwright_true(request, response):
 
 class LegacySpider(CrawlSpider):
     name = "legacy"
-    allowed_domains = ["dev.comparethemarket.com.au"]
+    allowed_domains = ["dev.xxx.xxx.xxx"]
     denied_domains = (
-        "api.dev.comparethemarket.com.au",
+        "api.dev.xxx.xxx.xxx",
         "api2.branch.io",
         "www.google-analytics.com",
         "cdn.taboola.com",
@@ -31,9 +31,9 @@ class LegacySpider(CrawlSpider):
         "fonts.gstatic.com",
         "www.googletagmanager.com",
         "fast.wistia.com",
-        "ssgtm.comparethemarket.com.au",
+        "ssgtm.xxx.xxx.xxx",
     )
-    start_urls = ["https://dev.comparethemarket.com.au"]
+    start_urls = ["https://dev.xxx.xxx.xxx"]
     timeout = 60
     rules = {
         Rule(LinkExtractor(deny=[

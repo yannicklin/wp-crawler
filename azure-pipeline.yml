@@ -95,7 +95,7 @@ stages:
               regionName: 'ap-southeast-2'
               scriptType: 'inline'
               inlineScript: |
-                SOURCEDOMAIN="wordpress.ctm.zone"
+                SOURCEDOMAIN="wordpress.xxx.xxx.xxx"
 
                 echo "Hardcoded to crawl favicon.ico"
                 FAVICON="static-content/themes/compare-the-market/resources/images/logos/favicon.ico"
@@ -160,7 +160,7 @@ stages:
                 AWS_REGION="ap-southeast-2"
                 VERTICAL="devops"
                 GIT_HASH="${HASH}"
-                DOMAIN="ctm.zone"
+                DOMAIN="xxx.xxx.xxx"
                 EOF
 
           - task: PublishBuildArtifacts@1

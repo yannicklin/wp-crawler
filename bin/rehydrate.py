@@ -46,7 +46,7 @@ def _transform_html_name(html: str):
 
 def process_entry(entry: dict) -> tuple:
     origin = urlparse(entry["request"]["url"])
-    if "dev.comparethemarket.com.au" in origin.netloc or "ctm.zone" in origin.netloc:
+    if "dev.xxx.xxx.xxx" in origin.netloc or "xxx.xxx.xxx" in origin.netloc:
         concentrate = entry["response"]["content"].get("_file", "NO_FILE")
         if concentrate == "NO_FILE":
             if entry["response"]["status"] in [301, 302]:
@@ -91,12 +91,12 @@ def file_flavour(filename: str, outputdir: str, r, local_host = False, cf_image 
             content = data.decode()
 
             replace = content.replace("http://wordpress", "https://wordpress") \
-                .replace("https://dev.comparethemarket.com.au", "") \
-                .replace("https://assets.comparethemarket.com.au", ".") \
-                .replace("https://wordpress.dev.ctm.zone", f"https://{domain}") \
-                .replace("https://wordpress.stg.ctm.zone", f"https://{domain}") \
-                .replace("https://wordpress.ctm.zone", f"https://{domain}") \
-                .replace("wordpress.ctm.zone", f"{domain}")
+                .replace("https://dev.xxx.xxx.xxx", "") \
+                .replace("https://assets.xxx.xxx.xxx", ".") \
+                .replace("https://wordpress.dev.xxx.xxx.xxx", f"https://{domain}") \
+                .replace("https://wordpress.stg.xxx.xxx.xxx", f"https://{domain}") \
+                .replace("https://wordpress.xxx.xxx.xxx", f"https://{domain}") \
+                .replace("wordpress.xxx.xxx.xxx", f"{domain}")
 
             if local_host:
                 replace = replace.replace("https://{{domain}}", "")

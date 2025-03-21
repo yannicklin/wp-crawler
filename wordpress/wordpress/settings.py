@@ -110,8 +110,8 @@ PLAYWRIGHT_BROWSER_TYPE="chromium"
 
 def should_abort_request(request):
     origin = urlparse(request.url)
-    allowed_domains = ["ctm.zone"]
-    disallowed_domains = ["ssgtm.comparethemarket.com.au"]
+    allowed_domains = ["xxx.xxx.xxx"]
+    disallowed_domains = ["ssgtm.xxx.xxx.xxx"]
     is_allowed = next((True for i in allowed_domains if i in origin.netloc), False)
     is_disallowed = next((True for i in disallowed_domains if i in origin.netloc), False)
 

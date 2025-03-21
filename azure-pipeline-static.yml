@@ -43,10 +43,10 @@ parameters:
   - name: "domain"
     displayName: "Wordpress Instance"
     type: string
-    default: "wordpress.dev.ctm.zone"
+    default: "wordpress.dev.xxx.xxx.xxx"
     values:
-      - "wordpress.stg.ctm.zone"
-      - "wordpress.dev.ctm.zone"
+      - "wordpress.stg.xxx.xxx.xxx"
+      - "wordpress.dev.xxx.xxx.xxx"
 
 
 pool:
@@ -105,7 +105,7 @@ stages:
               inlineScript: |
                 if [[ '${{ parameters.feature }}' != 'NONE' && -n '${{ parameters.feature }}' ]]; then
                   SOURCEDOMAIN='${{ parameters.feature}}-${{ parameters.domain }}'
-                elif [[ '${{ parameters.domain }}' == 'wordpress.stg.ctm.zone' ]]; then
+                elif [[ '${{ parameters.domain }}' == 'wordpress.stg.xxx.xxx.xxx' ]]; then
                   SOURCEDOMAIN='${{ parameters.domain }}'
                 fi
 
@@ -140,7 +140,7 @@ stages:
 
                 if [[ '${{ parameters.feature }}' != 'NONE' && -n '${{ parameters.feature }}' ]]; then
                   subdomain='${{ parameters.feature}}'
-                elif [[ '${{ parameters.domain }}' == 'wordpress.stg.ctm.zone' ]]; then
+                elif [[ '${{ parameters.domain }}' == 'wordpress.stg.xxx.xxx.xxx' ]]; then
                   subdomain='feature-stg'
                 else
                   subdomain='feature-dev'

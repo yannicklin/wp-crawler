@@ -14,7 +14,7 @@ logger = logging.getLogger("spider")
 
 
 def get_domain():
-    return os.environ.get("DOMAIN", "wordpress.ctm.zone")
+    return os.environ.get("DOMAIN", "wordpress.xxx.xxx.xxx")
 
 # Body Responsive Images
 actioneer1 = """
@@ -151,9 +151,9 @@ class SpiderSpider(CrawlSpider):
         "www.google-analytics.com",
         "www.googletagmanager.com",
         "fast.wistia.com",
-        "api.dev.comparethemarket.com.au",
-        "api.comparethemarket.com.au",
-        "ssgtm.comparethemarket.com.au",
+        "api.dev.xxx.xxx.xxx",
+        "api.xxx.xxx.xxx",
+        "ssgtm.xxx.xxx.xxx",
         "ka-p.fontawesome.com",
     )
 
